@@ -1,4 +1,4 @@
-# firecracker-sdk
+# Firecracker Rust Client SDK
 
 Rust SDK for the [Firecracker](https://github.com/firecracker-microvm/firecracker) microVM API.
 
@@ -53,4 +53,4 @@ cargo build
 
 ## License
 
-Apache-2.0
+MIT OR Apache-2.0
