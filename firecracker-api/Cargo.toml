@@ -1,5 +1,6 @@
 [package]
 name = "firecracker-api"
+description = "Low-level typed API client for Firecracker, generated via progenitor"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
