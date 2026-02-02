@@ -1,5 +1,5 @@
 [workspace]
-members = ["firecracker-api", "fc-sdk"]
+members = ["fc-api", "fc-sdk"]
 resolver = "3"
 
 [workspace.package]
@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/arcbox-labs/firecracker-client"
 
 [workspace.dependencies]
-firecracker-api = { version = "0.1.0", path = "firecracker-api" }
+fc-api = { version = "0.1.0", path = "fc-api" }
 fc-sdk = { version = "0.1.0", path = "fc-sdk" }
 openapiv3 = "2"
 progenitor = "0.11"
@@ -37,5 +37,5 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-firecracker-api.workspace = true
+fc-api.workspace = true
 fc-sdk.workspace = true

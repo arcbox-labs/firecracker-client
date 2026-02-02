@@ -7,7 +7,7 @@ Rust SDK for the [Firecracker](https://github.com/firecracker-microvm/firecracke
 | Crate | Description |
 |---|---|
 | `firecracker` | Facade — re-exports `api` + `sdk` |
-| `firecracker-api` | Low-level typed client, generated from Swagger spec via [progenitor](https://github.com/oxidecomputer/progenitor) |
+| `fc-api` | Low-level typed client, generated from Swagger spec via [progenitor](https://github.com/oxidecomputer/progenitor) |
 | `fc-sdk` | High-level typestate wrapper: `VmBuilder` → `Vm` lifecycle |
 
 ## Quick Start

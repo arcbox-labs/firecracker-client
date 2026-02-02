@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use firecracker_api::types::{BootSource, Drive, MachineConfiguration, NetworkInterface};
-use firecracker_api::Client;
+use fc_api::types::{BootSource, Drive, MachineConfiguration, NetworkInterface};
+use fc_api::Client;
 
 use crate::error::{Error, Result};
 use crate::vm::Vm;
@@ -102,7 +102,7 @@ impl VmBuilder {
         // Start the instance
         self.client
             .create_sync_action()
-            .body_map(|b| b.action_type(firecracker_api::types::InstanceActionInfoActionType::InstanceStart))
+            .body_map(|b| b.action_type(fc_api::types::InstanceActionInfoActionType::InstanceStart))
             .send()
             .await?;
 

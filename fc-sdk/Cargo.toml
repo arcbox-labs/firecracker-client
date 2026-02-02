@@ -9,7 +9,7 @@ repository.workspace = true
 
 
 [dependencies]
-firecracker-api.workspace = true
+fc-api.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

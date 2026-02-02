@@ -2,7 +2,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("API error: {0}")]
-    Api(#[from] firecracker_api::Error<firecracker_api::types::Error>),
+    Api(#[from] fc_api::Error<fc_api::types::Error>),
 
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),

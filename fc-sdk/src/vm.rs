@@ -1,7 +1,7 @@
-use firecracker_api::types::{
+use fc_api::types::{
     InstanceActionInfoActionType, SnapshotCreateParamsSnapshotType, VmState,
 };
-use firecracker_api::Client;
+use fc_api::Client;
 
 use crate::error::Result;
 

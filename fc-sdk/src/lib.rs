@@ -8,4 +8,4 @@ pub use error::{Error, Result};
 pub use vm::Vm;
 
 /// Re-export API types for convenience.
-pub use firecracker_api::types;
+pub use fc_api::types;
