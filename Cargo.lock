@@ -102,11 +102,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "firecracker"
+name = "fc-sdk"
 version = "0.1.0"
 dependencies = [
  "firecracker-api",
- "firecracker-sdk",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "firecracker"
+version = "0.1.0"
+dependencies = [
+ "fc-sdk",
+ "firecracker-api",
 ]
 
 [[package]]
@@ -122,18 +134,6 @@ dependencies = [
  "serde",
  "serde_json",
  "syn",
-]
-
-[[package]]
-name = "firecracker-sdk"
-version = "0.1.0"
-dependencies = [
- "firecracker-api",
- "reqwest",
- "serde",
- "serde_json",
- "thiserror",
- "tokio",
 ]
 
 [[package]]

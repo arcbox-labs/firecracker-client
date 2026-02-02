@@ -1,5 +1,5 @@
 [package]
-name = "firecracker-sdk"
+name = "fc-sdk"
 description = "High-level typestate SDK for managing Firecracker microVM lifecycles"
 version.workspace = true
 edition.workspace = true
