@@ -237,6 +237,18 @@ impl Vm {
         Ok(config.into_inner())
     }
 
+    /// Partially update the machine configuration.
+    ///
+    /// Pre-boot only. If any parameter has an incorrect value, the whole update fails.
+    pub async fn update_machine_config(&self, config: MachineConfiguration) -> Result<()> {
+        self.client
+            .patch_machine_configuration()
+            .body(config)
+            .send()
+            .await?;
+        Ok(())
+    }
+
     /// Get the status of the hotpluggable memory device.
     pub async fn memory_hotplug_status(&self) -> Result<MemoryHotplugStatus> {
         let status = self.client.get_memory_hotplug().send().await?;

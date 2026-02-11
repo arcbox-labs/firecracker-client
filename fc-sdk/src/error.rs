@@ -1,4 +1,6 @@
 use std::fmt;
+use std::path::PathBuf;
+use std::process::ExitStatus;
 
 /// Errors returned by the Firecracker SDK.
 #[derive(Debug)]
@@ -11,6 +13,18 @@ pub enum Error {
 
     /// HTTP/network error.
     Http(reqwest::Error),
+
+    /// I/O error.
+    Io(std::io::Error),
+
+    /// Failed to spawn a process.
+    SpawnFailed(std::io::Error),
+
+    /// Timed out waiting for the API socket to become available.
+    SocketTimeout(PathBuf),
+
+    /// The process exited unexpectedly.
+    ProcessExited(Option<ExitStatus>),
 
     /// Missing required configuration.
     MissingConfig(&'static str),
@@ -25,6 +39,8 @@ impl std::error::Error for Error {
             Self::Api(e) => Some(e),
             Self::ApiNoBody(e) => Some(e),
             Self::Http(e) => Some(e),
+            Self::Io(e) => Some(e),
+            Self::SpawnFailed(e) => Some(e),
             _ => None,
         }
     }
@@ -36,6 +52,15 @@ impl fmt::Display for Error {
             Self::Api(e) => write!(f, "API error: {e}"),
             Self::ApiNoBody(e) => write!(f, "API error: {e}"),
             Self::Http(e) => write!(f, "HTTP error: {e}"),
+            Self::Io(e) => write!(f, "I/O error: {e}"),
+            Self::SpawnFailed(e) => write!(f, "failed to spawn process: {e}"),
+            Self::SocketTimeout(path) => {
+                write!(f, "timed out waiting for socket: {}", path.display())
+            }
+            Self::ProcessExited(Some(status)) => {
+                write!(f, "process exited unexpectedly: {status}")
+            }
+            Self::ProcessExited(None) => write!(f, "process exited unexpectedly"),
             Self::MissingConfig(field) => write!(f, "missing required configuration: {field}"),
             Self::Other(msg) => write!(f, "{msg}"),
         }
@@ -57,6 +82,12 @@ impl From<fc_api::Error<()>> for Error {
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
         Self::Http(err)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
     }
 }
 

@@ -121,6 +121,7 @@ name = "fc-sdk"
 version = "0.1.0"
 dependencies = [
  "fc-api",
+ "libc",
  "reqwest",
  "serde",
  "serde_json",

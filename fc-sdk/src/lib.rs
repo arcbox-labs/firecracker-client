@@ -66,10 +66,12 @@
 pub mod builder;
 pub mod connection;
 pub mod error;
+pub mod process;
 pub mod vm;
 
 pub use builder::VmBuilder;
 pub use error::{Error, Result};
+pub use process::{FirecrackerProcess, FirecrackerProcessBuilder, JailerProcessBuilder};
 pub use vm::{restore, restore_with_client, Vm};
 
 /// Re-export API types for convenience.
