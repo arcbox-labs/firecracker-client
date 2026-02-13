@@ -323,6 +323,7 @@ impl FirecrackerProcessBuilder {
             child: Some(child),
             pid,
             socket_path,
+            cleanup_socket_on_drop: true,
         };
 
         if let Err(e) = wait_for_socket(
@@ -568,6 +569,7 @@ impl JailerProcessBuilder {
             child,
             pid,
             socket_path: socket_path.clone(),
+            cleanup_socket_on_drop: !daemonize,
         };
 
         wait_for_socket(&socket_path, socket_timeout, socket_poll_interval).await?;
@@ -589,9 +591,36 @@ pub struct FirecrackerProcess {
     child: Option<Child>,
     pid: Option<u32>,
     socket_path: PathBuf,
+    cleanup_socket_on_drop: bool,
+}
+
+/// Metadata for a detached Firecracker process.
+///
+/// Returned by [`FirecrackerProcess::detach()`] when the process lifecycle is
+/// intentionally transferred to the caller (e.g., CLI detached mode).
+pub struct DetachedFirecrackerProcess {
+    pid: Option<u32>,
+    socket_path: PathBuf,
+}
+
+impl DetachedFirecrackerProcess {
+    /// Best-effort PID if available.
+    pub fn pid(&self) -> Option<u32> {
+        self.pid
+    }
+
+    /// Path to the Firecracker API socket.
+    pub fn socket_path(&self) -> &Path {
+        &self.socket_path
+    }
 }
 
 impl FirecrackerProcess {
+    /// Best-effort PID if available.
+    pub fn pid(&self) -> Option<u32> {
+        self.pid
+    }
+
     /// Get the path to the Firecracker API socket.
     pub fn socket_path(&self) -> &Path {
         &self.socket_path
@@ -648,6 +677,21 @@ impl FirecrackerProcess {
             Ok(None)
         }
     }
+
+    /// Detach this handle without terminating the underlying process.
+    ///
+    /// After detaching, dropping this handle will not kill the process or
+    /// remove the API socket path.
+    pub fn detach(mut self) -> DetachedFirecrackerProcess {
+        let detached = DetachedFirecrackerProcess {
+            pid: self.pid,
+            socket_path: self.socket_path.clone(),
+        };
+        self.child = None;
+        self.pid = None;
+        self.cleanup_socket_on_drop = false;
+        detached
+    }
 }
 
 impl Drop for FirecrackerProcess {
@@ -658,8 +702,10 @@ impl Drop for FirecrackerProcess {
                 libc::kill(pid as i32, libc::SIGKILL);
             }
         }
-        // Best-effort socket cleanup.
-        std::fs::remove_file(&self.socket_path).ok();
+        if self.cleanup_socket_on_drop {
+            // Best-effort socket cleanup.
+            std::fs::remove_file(&self.socket_path).ok();
+        }
     }
 }
 

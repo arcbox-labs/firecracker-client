@@ -71,7 +71,9 @@ pub mod vm;
 
 pub use builder::VmBuilder;
 pub use error::{Error, Result};
-pub use process::{FirecrackerProcess, FirecrackerProcessBuilder, JailerProcessBuilder};
+pub use process::{
+    DetachedFirecrackerProcess, FirecrackerProcess, FirecrackerProcessBuilder, JailerProcessBuilder,
+};
 pub use vm::{Vm, restore, restore_with_client};
 
 /// Re-export API types for convenience.

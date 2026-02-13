@@ -102,6 +102,30 @@ cargo run -p fc-cli -- resolve all --mode bundled-then-system --bundle-root /opt
 # Resolve only firecracker from system PATH
 cargo run -p fc-cli -- resolve firecracker --mode system-only
 
+# Start a microVM and keep fc-cli attached (Ctrl+C to stop)
+cargo run -p fc-cli -- start \
+  --mode bundled-then-system \
+  --bundle-root /opt/arcbox/bundled \
+  --release v1.12.1 \
+  --kernel /path/to/vmlinux \
+  --rootfs /path/to/rootfs.ext4 \
+  --socket-path /tmp/firecracker.socket
+
+# Start a microVM in detached mode
+cargo run -p fc-cli -- start \
+  --kernel /path/to/vmlinux \
+  --rootfs /path/to/rootfs.ext4 \
+  --detach
+
+# Start a microVM via jailer in detached mode
+cargo run -p fc-cli -- start \
+  --backend jailer \
+  --uid 1000 \
+  --gid 1000 \
+  --kernel /path/to/vmlinux \
+  --rootfs /path/to/rootfs.ext4 \
+  --detach
+
 # Show platform support for release-based bundled mode
 cargo run -p fc-cli -- platform
 ```

@@ -10,3 +10,4 @@ repository.workspace = true
 [dependencies]
 clap.workspace = true
 firecracker = { path = "..", features = ["bundled-runtime"] }
+tokio.workspace = true
