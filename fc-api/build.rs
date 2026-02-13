@@ -1,9 +1,4 @@
-use std::{
-    env,
-    fs,
-    path::Path,
-    process::Command,
-};
+use std::{env, fs, path::Path, process::Command};
 
 fn main() {
     let spec_path = Path::new("spec/firecracker.yaml");
@@ -41,8 +36,7 @@ fn main() {
         for (_path, methods) in paths.iter_mut() {
             if let Some(methods) = methods.as_object_mut() {
                 for (_method, op) in methods.iter_mut() {
-                    if let Some(responses) =
-                        op.get_mut("responses").and_then(|r| r.as_object_mut())
+                    if let Some(responses) = op.get_mut("responses").and_then(|r| r.as_object_mut())
                     {
                         responses.remove("default");
                     }

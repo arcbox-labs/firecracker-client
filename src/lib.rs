@@ -18,10 +18,10 @@
 //!         initrd_path: None,
 //!     })
 //!     .machine_config(MachineConfiguration {
-//!         vcpu_count: 2,
+//!         vcpu_count: std::num::NonZeroU64::new(2).unwrap(),
 //!         mem_size_mib: 512,
-//!         smt: None,
-//!         track_dirty_pages: None,
+//!         smt: false,
+//!         track_dirty_pages: false,
 //!         cpu_template: None,
 //!         huge_pages: None,
 //!     })

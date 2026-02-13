@@ -26,6 +26,35 @@ pub enum Error {
     /// The process exited unexpectedly.
     ProcessExited(Option<ExitStatus>),
 
+    /// Bundled binary cannot be found.
+    BundledBinaryNotFound {
+        binary: &'static str,
+        searched: Vec<PathBuf>,
+    },
+
+    /// Bundled binary exists but is not executable.
+    BundledBinaryNotExecutable(PathBuf),
+
+    /// Bundled SHA256 string format is invalid.
+    BundledInvalidSha256 {
+        binary: &'static str,
+        sha256: String,
+    },
+
+    /// Bundled binary checksum mismatched.
+    BundledChecksumMismatch {
+        binary: &'static str,
+        path: PathBuf,
+        expected: String,
+        actual: String,
+    },
+
+    /// Unsupported platform for Firecracker release-based bundled mode.
+    BundledUnsupportedPlatform { os: String, arch: String },
+
+    /// Invalid Firecracker release version.
+    BundledInvalidReleaseVersion(String),
+
     /// Missing required configuration.
     MissingConfig(&'static str),
 
@@ -61,6 +90,47 @@ impl fmt::Display for Error {
                 write!(f, "process exited unexpectedly: {status}")
             }
             Self::ProcessExited(None) => write!(f, "process exited unexpectedly"),
+            Self::BundledBinaryNotFound { binary, searched } => {
+                write!(
+                    f,
+                    "bundled binary not found: {binary}; searched: {}",
+                    searched
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Self::BundledBinaryNotExecutable(path) => {
+                write!(f, "bundled binary is not executable: {}", path.display())
+            }
+            Self::BundledInvalidSha256 { binary, sha256 } => {
+                write!(f, "invalid SHA256 for {binary}: {sha256}")
+            }
+            Self::BundledChecksumMismatch {
+                binary,
+                path,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "checksum mismatch for {binary} ({}): expected {expected}, got {actual}",
+                    path.display()
+                )
+            }
+            Self::BundledUnsupportedPlatform { os, arch } => {
+                write!(
+                    f,
+                    "unsupported platform for bundled release mode: {os}-{arch}; supported: linux-x86_64, linux-aarch64"
+                )
+            }
+            Self::BundledInvalidReleaseVersion(version) => {
+                write!(
+                    f,
+                    "invalid Firecracker release version: {version}; expected vX.Y.Z"
+                )
+            }
             Self::MissingConfig(field) => write!(f, "missing required configuration: {field}"),
             Self::Other(msg) => write!(f, "{msg}"),
         }

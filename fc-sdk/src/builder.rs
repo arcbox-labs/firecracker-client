@@ -1,11 +1,11 @@
 use std::path::Path;
 
+use fc_api::Client;
 use fc_api::types::{
     Balloon, BootSource, CpuConfig, Drive, EntropyDevice, FullVmConfiguration, Logger,
     MachineConfiguration, MemoryHotplugConfig, Metrics, MmdsConfig, NetworkInterface, Pmem,
     SerialDevice, Vsock,
 };
-use fc_api::Client;
 
 use crate::error::{Error, Result};
 use crate::vm::Vm;
@@ -26,20 +26,30 @@ use crate::vm::Vm;
 ///
 /// # async fn example() -> fc_sdk::Result<()> {
 /// let vm = VmBuilder::new("/tmp/firecracker.sock")
-///     .boot_source(BootSource::builder()
-///         .kernel_image_path("/path/to/vmlinux")
-///         .boot_args("console=ttyS0 reboot=k panic=1")
-///         .build())
-///     .machine_config(MachineConfiguration::builder()
-///         .vcpu_count(2)
-///         .mem_size_mib(512)
-///         .build())
-///     .drive(Drive::builder()
-///         .drive_id("rootfs")
-///         .path_on_host("/path/to/rootfs.ext4")
-///         .is_root_device(true)
-///         .is_read_only(false)
-///         .build())
+///     .boot_source(BootSource {
+///         kernel_image_path: "/path/to/vmlinux".into(),
+///         boot_args: Some("console=ttyS0 reboot=k panic=1".into()),
+///         initrd_path: None,
+///     })
+///     .machine_config(MachineConfiguration {
+///         vcpu_count: std::num::NonZeroU64::new(2).unwrap(),
+///         mem_size_mib: 512,
+///         smt: false,
+///         track_dirty_pages: false,
+///         cpu_template: None,
+///         huge_pages: None,
+///     })
+///     .drive(Drive {
+///         drive_id: "rootfs".into(),
+///         path_on_host: Some("/path/to/rootfs.ext4".into()),
+///         is_root_device: true,
+///         is_read_only: Some(false),
+///         cache_type: DriveCacheType::Unsafe,
+///         io_engine: DriveIoEngine::Sync,
+///         partuuid: None,
+///         rate_limiter: None,
+///         socket: None,
+///     })
 ///     .start()
 ///     .await?;
 /// # Ok(())

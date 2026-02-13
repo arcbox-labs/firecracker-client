@@ -19,10 +19,10 @@
 //!         initrd_path: None,
 //!     })
 //!     .machine_config(MachineConfiguration {
-//!         vcpu_count: 2,
+//!         vcpu_count: std::num::NonZeroU64::new(2).unwrap(),
 //!         mem_size_mib: 512,
-//!         smt: None,
-//!         track_dirty_pages: None,
+//!         smt: false,
+//!         track_dirty_pages: false,
 //!         cpu_template: None,
 //!         huge_pages: None,
 //!     })
@@ -56,7 +56,7 @@
 //!         enable_diff_snapshots: None,
 //!         track_dirty_pages: None,
 //!         resume_vm: Some(true),
-//!         network_overrides: None,
+//!         network_overrides: vec![],
 //!     },
 //! ).await?;
 //! # Ok(())
@@ -64,15 +64,17 @@
 //! ```
 
 pub mod builder;
+pub mod bundled;
 pub mod connection;
 pub mod error;
 pub mod process;
 pub mod vm;
 
 pub use builder::VmBuilder;
+pub use bundled::{BundledMode, BundledRuntimeOptions};
 pub use error::{Error, Result};
 pub use process::{FirecrackerProcess, FirecrackerProcessBuilder, JailerProcessBuilder};
-pub use vm::{restore, restore_with_client, Vm};
+pub use vm::{Vm, restore, restore_with_client};
 
 /// Re-export API types for convenience.
 pub use fc_api::types;

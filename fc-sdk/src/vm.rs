@@ -1,13 +1,13 @@
 use std::path::Path;
 
+use fc_api::Client;
 use fc_api::types::{
     Balloon, BalloonHintingStatus, BalloonStartCmd, BalloonStats, BalloonStatsUpdate,
     BalloonUpdate, FirecrackerVersion, FullVmConfiguration, InstanceActionInfoActionType,
-    InstanceInfo, MachineConfiguration, MemoryHotplugSizeUpdate, MemoryHotplugStatus,
-    PartialDrive, PartialNetworkInterface, SnapshotCreateParams, SnapshotCreateParamsSnapshotType,
+    InstanceInfo, MachineConfiguration, MemoryHotplugSizeUpdate, MemoryHotplugStatus, PartialDrive,
+    PartialNetworkInterface, SnapshotCreateParams, SnapshotCreateParamsSnapshotType,
     SnapshotLoadParams, VmState,
 };
-use fc_api::Client;
 
 use crate::connection::connect;
 use crate::error::Result;
@@ -331,7 +331,7 @@ impl Vm {
 ///         enable_diff_snapshots: None,
 ///         track_dirty_pages: None,
 ///         resume_vm: Some(true),
-///         network_overrides: None,
+///         network_overrides: vec![],
 ///     },
 /// ).await?;
 /// # Ok(())
