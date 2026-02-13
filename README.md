@@ -6,42 +6,124 @@ Rust SDK for the [Firecracker](https://github.com/firecracker-microvm/firecracke
 
 | Crate | Description |
 |---|---|
-| `firecracker` | Facade — re-exports `api` + `sdk` |
+| `firecracker` | Facade — re-exports `api` + `sdk` + optional `runtime` |
 | `fc-api` | Low-level typed client, generated from Swagger spec via [progenitor](https://github.com/oxidecomputer/progenitor) |
-| `fc-sdk` | High-level typestate wrapper: `VmBuilder` → `Vm` lifecycle |
-| `fc-cli` | CLI for runtime helpers (binary resolution, platform checks) |
+| `fc-sdk` | High-level typestate wrapper: `VmBuilder` → `Vm` lifecycle, process management |
+| `fc-cli` | CLI for runtime helpers and microVM process launch |
 
 ## Quick Start
 
 ```rust
-use firecracker::sdk::{VmBuilder, types};
+use firecracker::sdk::{VmBuilder, types::*};
 
 let vm = VmBuilder::new("/tmp/firecracker.socket")
-    .boot_source(types::BootSource {
+    .boot_source(BootSource {
         kernel_image_path: "/path/to/vmlinux".into(),
         boot_args: Some("console=ttyS0".into()),
         initrd_path: None,
     })
-    .machine_config(types::MachineConfiguration {
-        vcpu_count: 2,
+    .machine_config(MachineConfiguration {
+        vcpu_count: std::num::NonZeroU64::new(2).unwrap(),
         mem_size_mib: 256,
-        ..Default::default()
+        smt: false,
+        track_dirty_pages: false,
+        cpu_template: None,
+        huge_pages: None,
     })
     .start()
     .await?;
 
 vm.pause().await?;
 vm.resume().await?;
-vm.snapshot("/tmp/snap", "/tmp/mem").await?;
+vm.create_snapshot("/tmp/snap", "/tmp/mem").await?;
 ```
 
 For operations not covered by the SDK, use the generated API client directly:
 
 ```rust
-use firecracker::api::Client;
-
 let client = vm.client();
 client.describe_instance().send().await?;
+```
+
+## Process Management
+
+`fc-sdk` can spawn and manage the Firecracker process for you.
+
+### Direct (no jailer)
+
+```rust
+use firecracker::sdk::FirecrackerProcessBuilder;
+
+let process = FirecrackerProcessBuilder::new("/usr/bin/firecracker", "/tmp/fc.sock")
+    .id("my-vm")
+    .no_seccomp(true)
+    .cleanup_socket(true)
+    .spawn()
+    .await?;
+
+let vm = process.vm_builder()
+    .boot_source(/* ... */)
+    .machine_config(/* ... */)
+    .start()
+    .await?;
+
+// process is killed and socket cleaned up on drop
+```
+
+### Via Jailer
+
+```rust
+use firecracker::sdk::JailerProcessBuilder;
+
+let process = JailerProcessBuilder::new(
+    "/usr/bin/jailer",
+    "/usr/bin/firecracker",
+    "my-vm",
+    1000, // uid
+    1000, // gid
+)
+.netns("/var/run/netns/my-ns")
+.spawn()
+.await?;
+
+// Socket path is automatically computed from the chroot layout
+let vm = process.vm_builder()
+    .boot_source(/* ... */)
+    .machine_config(/* ... */)
+    .start()
+    .await?;
+```
+
+### Restoring from Snapshot
+
+```rust
+use firecracker::sdk::{restore, types::*};
+
+let vm = restore(
+    "/tmp/firecracker.sock",
+    SnapshotLoadParams {
+        snapshot_path: "/path/to/snapshot".into(),
+        mem_file_path: Some("/path/to/mem".into()),
+        mem_backend: None,
+        enable_diff_snapshots: None,
+        track_dirty_pages: None,
+        resume_vm: Some(true),
+        network_overrides: vec![],
+    },
+).await?;
+```
+
+### Rebuilding from Exported Config
+
+```rust
+// Export config from a running VM
+let config = vm.config().await?;
+
+// Recreate a builder on a new Firecracker instance
+let new_vm = VmBuilder::from_config("/tmp/new-fc.sock", config)
+    .mmds_data(/* optional pre-boot MMDS data */)
+    .start()
+    .await?;
 ```
 
 ## Bundled Runtime Mode
@@ -129,6 +211,19 @@ cargo run -p fc-cli -- start \
 # Show platform support for release-based bundled mode
 cargo run -p fc-cli -- platform
 ```
+
+`fc-cli start` notes:
+
+- `--backend firecracker`:
+  uses `--socket-path` (default `/tmp/firecracker.socket`).
+- `--backend jailer`:
+  requires `--uid` and `--gid`; custom `--socket-path` is not supported.
+- `--backend jailer --daemonize`:
+  must be used together with `--detach`.
+- `--detach`:
+  leaves the process running and prints `socket` plus best-effort `pid`.
+- default (without `--detach`):
+  keeps `fc-cli` attached; press `Ctrl+C` for graceful shutdown.
 
 ## Building
 

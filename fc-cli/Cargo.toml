@@ -9,5 +9,5 @@ repository.workspace = true
 
 [dependencies]
 clap.workspace = true
-firecracker = { path = "..", features = ["bundled-runtime"] }
+firecracker = { workspace = true, features = ["bundled-runtime"] }
 tokio.workspace = true
