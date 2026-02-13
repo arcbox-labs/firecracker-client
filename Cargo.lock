@@ -163,7 +163,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sha2",
  "thiserror",
  "tokio",
 ]
@@ -174,6 +173,7 @@ version = "0.1.0"
 dependencies = [
  "fc-api",
  "fc-sdk",
+ "sha2",
 ]
 
 [[package]]

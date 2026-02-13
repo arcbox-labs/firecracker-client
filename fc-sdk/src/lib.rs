@@ -64,14 +64,12 @@
 //! ```
 
 pub mod builder;
-pub mod bundled;
 pub mod connection;
 pub mod error;
 pub mod process;
 pub mod vm;
 
 pub use builder::VmBuilder;
-pub use bundled::{BundledMode, BundledRuntimeOptions};
 pub use error::{Error, Result};
 pub use process::{FirecrackerProcess, FirecrackerProcessBuilder, JailerProcessBuilder};
 pub use vm::{Vm, restore, restore_with_client};

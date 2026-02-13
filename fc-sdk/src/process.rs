@@ -77,7 +77,6 @@ use tokio::process::{Child, Command};
 use tokio::time::{sleep, timeout as tokio_timeout};
 
 use crate::builder::VmBuilder;
-use crate::bundled::BundledRuntimeOptions;
 use crate::error::{Error, Result};
 
 // =============================================================================
@@ -149,20 +148,6 @@ impl FirecrackerProcessBuilder {
             socket_poll_interval: Duration::from_millis(50),
             cleanup_socket: true,
         }
-    }
-
-    /// Create a new builder using bundled resolution for firecracker binary.
-    pub fn new_bundled(socket_path: impl Into<PathBuf>) -> Result<Self> {
-        Self::new_with_bundled_options(socket_path, BundledRuntimeOptions::default())
-    }
-
-    /// Create a new builder using custom bundled runtime options.
-    pub fn new_with_bundled_options(
-        socket_path: impl Into<PathBuf>,
-        options: BundledRuntimeOptions,
-    ) -> Result<Self> {
-        let firecracker_bin = options.resolve_firecracker_bin()?;
-        Ok(Self::new(firecracker_bin, socket_path))
     }
 
     /// Set the VM identifier.
@@ -411,23 +396,6 @@ impl JailerProcessBuilder {
             socket_timeout: Duration::from_secs(5),
             socket_poll_interval: Duration::from_millis(50),
         }
-    }
-
-    /// Create a new Jailer builder using bundled resolution.
-    pub fn new_bundled(id: impl Into<String>, uid: u32, gid: u32) -> Result<Self> {
-        Self::new_with_bundled_options(id, uid, gid, BundledRuntimeOptions::default())
-    }
-
-    /// Create a new Jailer builder using custom bundled runtime options.
-    pub fn new_with_bundled_options(
-        id: impl Into<String>,
-        uid: u32,
-        gid: u32,
-        options: BundledRuntimeOptions,
-    ) -> Result<Self> {
-        let jailer_bin = options.resolve_jailer_bin()?;
-        let firecracker_bin = options.resolve_firecracker_bin()?;
-        Ok(Self::new(jailer_bin, firecracker_bin, id, uid, gid))
     }
 
     /// Set the chroot base directory (default: `/srv/jailer`).

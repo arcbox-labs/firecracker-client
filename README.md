@@ -45,7 +45,13 @@ client.describe_instance().send().await?;
 
 ## Bundled Runtime Mode
 
-`fc-sdk` supports resolving `firecracker` and `jailer` binaries from bundled
+Enable this capability with:
+
+```bash
+cargo add firecracker --features bundled-runtime
+```
+
+`firecracker::runtime::bundled` supports resolving `firecracker` and `jailer` binaries from bundled
 Firecracker upstream release artifacts with optional fallback to system `PATH`.
 Release-based bundled mode currently supports:
 
@@ -53,9 +59,7 @@ Release-based bundled mode currently supports:
 - `linux-aarch64`
 
 ```rust
-use firecracker::sdk::{
-    BundledMode, BundledRuntimeOptions, FirecrackerProcessBuilder, JailerProcessBuilder,
-};
+use firecracker::runtime::bundled::{BundledMode, BundledRuntimeOptions};
 
 let bundled = BundledRuntimeOptions::new()
     .mode(BundledMode::BundledThenSystem)
@@ -64,12 +68,9 @@ let bundled = BundledRuntimeOptions::new()
     .firecracker_sha256("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
     .jailer_sha256("sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789");
 
-let fc = FirecrackerProcessBuilder::new_with_bundled_options(
-    "/tmp/firecracker.socket",
-    bundled.clone(),
-)?;
+let fc = bundled.firecracker_builder("/tmp/firecracker.socket")?;
 
-let jailer = JailerProcessBuilder::new_with_bundled_options("vm-1", 1000, 1000, bundled)?;
+let jailer = bundled.jailer_builder("vm-1", 1000, 1000)?;
 ```
 
 Supported bundled path layout:

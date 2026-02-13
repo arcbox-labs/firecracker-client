@@ -1,9 +1,10 @@
 //! Rust SDK for the Firecracker microVM API.
 //!
-//! This crate provides two modules:
+//! This crate provides three modules:
 //!
 //! - [`api`] — Low-level typed API client generated via progenitor
 //! - [`sdk`] — High-level typestate SDK for managing VM lifecycles
+//! - [`runtime`] — Runtime helpers (enabled by the `bundled-runtime` feature)
 //!
 //! # Quick Start
 //!
@@ -50,3 +51,9 @@ pub use fc_api as api;
 /// - [`sdk::restore`] — Restore from snapshot
 /// - [`sdk::types`] — Re-exported API types
 pub use fc_sdk as sdk;
+
+/// Runtime helpers layered on top of the low-level and high-level SDK crates.
+///
+/// Enabled by the `bundled-runtime` Cargo feature.
+#[cfg(feature = "bundled-runtime")]
+pub mod runtime;

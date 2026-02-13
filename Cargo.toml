@@ -38,6 +38,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = []
+bundled-runtime = ["dep:sha2"]
+
 [dependencies]
 fc-api.workspace = true
 fc-sdk.workspace = true
+sha2 = { workspace = true, optional = true }

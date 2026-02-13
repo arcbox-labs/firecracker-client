@@ -1,11 +1,114 @@
 use std::env;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use fc_sdk::{FirecrackerProcessBuilder, JailerProcessBuilder};
 use sha2::{Digest, Sha256};
 
-use crate::error::{Error, Result};
+/// Errors from bundled runtime resolution.
+#[derive(Debug)]
+pub enum BundledRuntimeError {
+    /// I/O error while reading/checking binaries.
+    Io(std::io::Error),
+
+    /// Bundled binary cannot be found.
+    BinaryNotFound {
+        binary: &'static str,
+        searched: Vec<PathBuf>,
+    },
+
+    /// Bundled binary exists but is not executable.
+    BinaryNotExecutable(PathBuf),
+
+    /// Bundled SHA256 string format is invalid.
+    InvalidSha256 {
+        binary: &'static str,
+        sha256: String,
+    },
+
+    /// Bundled binary checksum mismatched.
+    ChecksumMismatch {
+        binary: &'static str,
+        path: PathBuf,
+        expected: String,
+        actual: String,
+    },
+
+    /// Unsupported platform for Firecracker release-based bundled mode.
+    UnsupportedPlatform { os: String, arch: String },
+
+    /// Invalid Firecracker release version.
+    InvalidReleaseVersion(String),
+}
+
+impl std::error::Error for BundledRuntimeError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for BundledRuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io(e) => write!(f, "I/O error: {e}"),
+            Self::BinaryNotFound { binary, searched } => {
+                write!(
+                    f,
+                    "bundled binary not found: {binary}; searched: {}",
+                    searched
+                        .iter()
+                        .map(|p| p.display().to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Self::BinaryNotExecutable(path) => {
+                write!(f, "bundled binary is not executable: {}", path.display())
+            }
+            Self::InvalidSha256 { binary, sha256 } => {
+                write!(f, "invalid SHA256 for {binary}: {sha256}")
+            }
+            Self::ChecksumMismatch {
+                binary,
+                path,
+                expected,
+                actual,
+            } => {
+                write!(
+                    f,
+                    "checksum mismatch for {binary} ({}): expected {expected}, got {actual}",
+                    path.display()
+                )
+            }
+            Self::UnsupportedPlatform { os, arch } => {
+                write!(
+                    f,
+                    "unsupported platform for bundled release mode: {os}-{arch}; supported: linux-x86_64, linux-aarch64"
+                )
+            }
+            Self::InvalidReleaseVersion(version) => {
+                write!(
+                    f,
+                    "invalid Firecracker release version: {version}; expected vX.Y.Z"
+                )
+            }
+        }
+    }
+}
+
+impl From<std::io::Error> for BundledRuntimeError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+/// Result type for bundled runtime resolution.
+pub type Result<T> = std::result::Result<T, BundledRuntimeError>;
 
 /// Binary resolution mode for bundled runtime.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -140,6 +243,33 @@ impl BundledRuntimeOptions {
         )
     }
 
+    /// Build a [`FirecrackerProcessBuilder`] using bundled resolution.
+    pub fn firecracker_builder(
+        &self,
+        socket_path: impl Into<PathBuf>,
+    ) -> Result<FirecrackerProcessBuilder> {
+        let firecracker_bin = self.resolve_firecracker_bin()?;
+        Ok(FirecrackerProcessBuilder::new(firecracker_bin, socket_path))
+    }
+
+    /// Build a [`JailerProcessBuilder`] using bundled resolution.
+    pub fn jailer_builder(
+        &self,
+        id: impl Into<String>,
+        uid: u32,
+        gid: u32,
+    ) -> Result<JailerProcessBuilder> {
+        let jailer_bin = self.resolve_jailer_bin()?;
+        let firecracker_bin = self.resolve_firecracker_bin()?;
+        Ok(JailerProcessBuilder::new(
+            jailer_bin,
+            firecracker_bin,
+            id,
+            uid,
+            gid,
+        ))
+    }
+
     fn resolve_binary(
         &self,
         binary_label: &'static str,
@@ -237,7 +367,7 @@ impl BundledRuntimeOptions {
             return Ok(path);
         }
 
-        Err(Error::BundledBinaryNotFound {
+        Err(BundledRuntimeError::BinaryNotFound {
             binary: binary_label,
             searched,
         })
@@ -260,7 +390,7 @@ impl BundledRuntimeOptions {
                 ensure_executable(&candidate)?;
             }
             if !is_executable(&candidate)? {
-                return Err(Error::BundledBinaryNotExecutable(candidate));
+                return Err(BundledRuntimeError::BinaryNotExecutable(candidate));
             }
 
             if let Some(expected) = expected_sha256 {
@@ -282,7 +412,7 @@ impl BundledRuntimeOptions {
         if let Some(version) = &resolved
             && !is_valid_release_version(version)
         {
-            return Err(Error::BundledInvalidReleaseVersion(version.clone()));
+            return Err(BundledRuntimeError::InvalidReleaseVersion(version.clone()));
         }
 
         Ok(resolved)
@@ -378,7 +508,7 @@ fn current_release_arch() -> Result<String> {
     if is_supported_release_target(os, arch) {
         Ok(arch.to_owned())
     } else {
-        Err(Error::BundledUnsupportedPlatform {
+        Err(BundledRuntimeError::UnsupportedPlatform {
             os: os.to_owned(),
             arch: arch.to_owned(),
         })
@@ -396,10 +526,11 @@ fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
 }
 
 fn verify_sha256(binary_label: &'static str, path: &Path, expected: &str) -> Result<()> {
-    let expected = normalize_sha256(expected).ok_or_else(|| Error::BundledInvalidSha256 {
-        binary: binary_label,
-        sha256: expected.to_owned(),
-    })?;
+    let expected =
+        normalize_sha256(expected).ok_or_else(|| BundledRuntimeError::InvalidSha256 {
+            binary: binary_label,
+            sha256: expected.to_owned(),
+        })?;
 
     let mut file = File::open(path)?;
     let mut hasher = Sha256::new();
@@ -416,7 +547,7 @@ fn verify_sha256(binary_label: &'static str, path: &Path, expected: &str) -> Res
     if actual == expected {
         Ok(())
     } else {
-        Err(Error::BundledChecksumMismatch {
+        Err(BundledRuntimeError::ChecksumMismatch {
             binary: binary_label,
             path: path.to_path_buf(),
             expected,
@@ -530,6 +661,30 @@ mod tests {
     }
 
     #[test]
+    fn test_builder_wrappers() {
+        let temp = temp_dir("builder-wrapper");
+        let version = "v1.12.0";
+        let arch = env::consts::ARCH;
+
+        let fc_path = temp
+            .join(format!("release-{version}-{arch}"))
+            .join(format!("firecracker-{version}-{arch}"));
+        let jailer_path = temp
+            .join(format!("release-{version}-{arch}"))
+            .join(format!("jailer-{version}-{arch}"));
+        write_executable(&fc_path);
+        write_executable(&jailer_path);
+
+        let opts = BundledRuntimeOptions::new()
+            .mode(BundledMode::BundledOnly)
+            .bundle_root(&temp)
+            .release_version(version);
+
+        let _fc_builder = opts.firecracker_builder("/tmp/fc.sock").unwrap();
+        let _jailer_builder = opts.jailer_builder("vm-1", 1000, 1000).unwrap();
+    }
+
+    #[test]
     fn test_checksum_mismatch() {
         let temp = temp_dir("checksum-mismatch");
         let binary_path = temp
@@ -544,7 +699,7 @@ mod tests {
 
         let err = opts.resolve_firecracker_bin().unwrap_err();
         match err {
-            Error::BundledChecksumMismatch { .. } => {}
+            BundledRuntimeError::ChecksumMismatch { .. } => {}
             other => panic!("unexpected error: {other:?}"),
         }
     }
@@ -559,7 +714,7 @@ mod tests {
 
         let err = opts.resolve_firecracker_bin().unwrap_err();
         match err {
-            Error::BundledInvalidReleaseVersion(version) => assert_eq!(version, "1.2.3"),
+            BundledRuntimeError::InvalidReleaseVersion(version) => assert_eq!(version, "1.2.3"),
             other => panic!("unexpected error: {other:?}"),
         }
     }
@@ -581,7 +736,7 @@ mod tests {
 
         let err = opts.resolve_jailer_bin().unwrap_err();
         match err {
-            Error::BundledBinaryNotFound { binary, searched } => {
+            BundledRuntimeError::BinaryNotFound { binary, searched } => {
                 assert_eq!(binary, "jailer");
                 assert!(!searched.is_empty());
             }
@@ -591,7 +746,7 @@ mod tests {
 
     fn temp_dir(prefix: &str) -> PathBuf {
         let dir = env::temp_dir().join(format!(
-            "fc-sdk-{prefix}-{}-{}",
+            "firecracker-runtime-{prefix}-{}-{}",
             std::process::id(),
             unique_suffix()
         ));
