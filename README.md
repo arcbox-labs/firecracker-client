@@ -9,6 +9,7 @@ Rust SDK for the [Firecracker](https://github.com/firecracker-microvm/firecracke
 | `firecracker` | Facade — re-exports `api` + `sdk` |
 | `fc-api` | Low-level typed client, generated from Swagger spec via [progenitor](https://github.com/oxidecomputer/progenitor) |
 | `fc-sdk` | High-level typestate wrapper: `VmBuilder` → `Vm` lifecycle |
+| `fc-cli` | CLI for runtime helpers (binary resolution, platform checks) |
 
 ## Quick Start
 
@@ -91,6 +92,19 @@ Environment variable overrides:
 - `FC_SDK_JAILER_BIN`
 - `FC_SDK_BUNDLED_DIR`
 - `FC_SDK_FIRECRACKER_RELEASE`
+
+`fc-cli` usage examples:
+
+```bash
+# Resolve both binaries using bundled-first strategy
+cargo run -p fc-cli -- resolve all --mode bundled-then-system --bundle-root /opt/arcbox/bundled --release v1.12.1
+
+# Resolve only firecracker from system PATH
+cargo run -p fc-cli -- resolve firecracker --mode system-only
+
+# Show platform support for release-based bundled mode
+cargo run -p fc-cli -- platform
+```
 
 ## Building
 

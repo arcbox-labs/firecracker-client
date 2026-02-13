@@ -1,5 +1,5 @@
 [workspace]
-members = ["fc-api", "fc-sdk"]
+members = ["fc-api", "fc-sdk", "fc-cli"]
 resolver = "3"
 
 [workspace.package]
@@ -28,6 +28,7 @@ libc = "0.2"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 sha2 = "0.10"
+clap = { version = "4.5", features = ["derive"] }
 
 [package]
 name = "firecracker"

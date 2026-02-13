@@ -1,0 +1,12 @@
+[package]
+name = "fc-cli"
+description = "CLI utilities for Firecracker SDK runtime operations"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+clap.workspace = true
+firecracker = { path = "..", features = ["bundled-runtime"] }
