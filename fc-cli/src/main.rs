@@ -24,7 +24,7 @@ enum Commands {
     /// Resolve firecracker/jailer binaries using bundled runtime rules.
     Resolve(ResolveArgs),
     /// Spawn Firecracker and start a microVM.
-    Start(StartArgs),
+    Start(Box<StartArgs>),
     /// Print current platform and whether release-based bundled mode supports it.
     Platform,
 }
@@ -224,7 +224,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     match cli.command {
         Commands::Resolve(args) => resolve(args)?,
-        Commands::Start(args) => start(args).await?,
+        Commands::Start(args) => start(*args).await?,
         Commands::Platform => platform(),
     }
     Ok(())
