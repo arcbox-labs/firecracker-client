@@ -1,4 +1,5 @@
 use std::num::NonZeroU64;
+use std::os::unix::fs::chown;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -273,7 +274,22 @@ async fn start(args: StartArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut process = spawn_process(&args, &runtime_options).await?;
-    configure_vm(&process, &args, vcpu_count).await?;
+
+    // For jailer backend, stage resource files into the chroot and use
+    // chroot-relative paths for the Firecracker API.
+    let vm_paths = match args.backend {
+        StartBackend::Jailer => {
+            let chroot_root = chroot_root_from_socket(process.socket_path())?;
+            stage_jailer_resources(&chroot_root, &args)?
+        }
+        StartBackend::Firecracker => VmPaths {
+            kernel: args.kernel.clone(),
+            rootfs: args.rootfs.clone(),
+            initrd: args.initrd.clone(),
+        },
+    };
+
+    configure_vm(&process, &args, vcpu_count, &vm_paths).await?;
 
     println!("vm_started=true");
     println!("backend={}", backend_as_str(args.backend));
@@ -391,15 +407,19 @@ async fn spawn_process(
             if args.no_seccomp {
                 builder = builder.firecracker_arg("--no-seccomp");
             }
-            if let Some(log_path) = &args.log_path {
+            // log-path and metrics-path are resolved by Firecracker inside the
+            // chroot, so use a fixed chroot-relative path and let the file be
+            // created there.  The original host path is NOT accessible after
+            // pivot_root.
+            if args.log_path.is_some() {
                 builder = builder
                     .firecracker_arg("--log-path")
-                    .firecracker_arg(path_to_string(log_path));
+                    .firecracker_arg("firecracker.log");
             }
-            if let Some(metrics_path) = &args.metrics_path {
+            if args.metrics_path.is_some() {
                 builder = builder
                     .firecracker_arg("--metrics-path")
-                    .firecracker_arg(path_to_string(metrics_path));
+                    .firecracker_arg("firecracker-metrics");
             }
             if let Some(log_level) = &args.log_level {
                 builder = builder
@@ -412,17 +432,24 @@ async fn spawn_process(
     }
 }
 
+struct VmPaths {
+    kernel: PathBuf,
+    rootfs: PathBuf,
+    initrd: Option<PathBuf>,
+}
+
 async fn configure_vm(
     process: &FirecrackerProcess,
     args: &StartArgs,
     vcpu_count: NonZeroU64,
+    paths: &VmPaths,
 ) -> Result<(), Box<dyn std::error::Error>> {
     process
         .vm_builder()
         .boot_source(types::BootSource {
-            kernel_image_path: path_to_string(&args.kernel),
+            kernel_image_path: path_to_string(&paths.kernel),
             boot_args: args.boot_args.clone(),
-            initrd_path: args.initrd.as_ref().map(|p| path_to_string(p)),
+            initrd_path: paths.initrd.as_ref().map(|p| path_to_string(p)),
         })
         .machine_config(types::MachineConfiguration {
             vcpu_count,
@@ -434,7 +461,7 @@ async fn configure_vm(
         })
         .drive(types::Drive {
             drive_id: args.rootfs_id.clone(),
-            path_on_host: Some(path_to_string(&args.rootfs)),
+            path_on_host: Some(path_to_string(&paths.rootfs)),
             is_root_device: true,
             is_read_only: Some(args.rootfs_read_only),
             partuuid: None,
@@ -447,6 +474,67 @@ async fn configure_vm(
         .await?;
 
     Ok(())
+}
+
+/// Derive the chroot root directory from the jailer socket path.
+///
+/// Socket path format: `{chroot_base}/{exec_name}/{id}/root/run/firecracker.socket`
+/// We need:            `{chroot_base}/{exec_name}/{id}/root/`
+fn chroot_root_from_socket(socket_path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    // Strip run/firecracker.socket → .../root
+    let root = socket_path
+        .parent() // .../root/run
+        .and_then(|p| p.parent()) // .../root
+        .ok_or_else(|| invalid_input("cannot derive chroot root from socket path"))?;
+    Ok(root.to_path_buf())
+}
+
+/// Copy a file into the chroot root directory and set ownership.
+/// Returns the chroot-relative path (e.g. `/vmlinux`).
+fn copy_to_chroot(
+    chroot_root: &Path,
+    source: &Path,
+    uid: Option<u32>,
+    gid: Option<u32>,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| invalid_input(&format!("path has no filename: {}", source.display())))?;
+    let dest = chroot_root.join(file_name);
+    std::fs::copy(source, &dest).map_err(|e| {
+        invalid_input(&format!(
+            "failed to copy {} → {}: {e}",
+            source.display(),
+            dest.display()
+        ))
+    })?;
+    chown(&dest, uid, gid)
+        .map_err(|e| invalid_input(&format!("failed to chown {}: {e}", dest.display())))?;
+    // Return the chroot-relative path (Firecracker sees / as chroot root).
+    Ok(PathBuf::from("/").join(file_name))
+}
+
+/// Stage kernel, rootfs, and optionally initrd into the jailer chroot directory.
+fn stage_jailer_resources(
+    chroot_root: &Path,
+    args: &StartArgs,
+) -> Result<VmPaths, Box<dyn std::error::Error>> {
+    let kernel = copy_to_chroot(chroot_root, &args.kernel, args.uid, args.gid)?;
+    let rootfs = copy_to_chroot(chroot_root, &args.rootfs, args.uid, args.gid)?;
+    let initrd = match &args.initrd {
+        Some(initrd_path) => Some(copy_to_chroot(
+            chroot_root,
+            initrd_path,
+            args.uid,
+            args.gid,
+        )?),
+        None => None,
+    };
+    Ok(VmPaths {
+        kernel,
+        rootfs,
+        initrd,
+    })
 }
 
 fn platform() {
