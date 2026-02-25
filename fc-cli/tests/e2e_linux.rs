@@ -209,7 +209,10 @@ fn test_start_vm_detached_firecracker() {
         .stdout(predicate::str::contains("pid="));
 
     // Verify socket file was created
-    assert!(socket_path.exists(), "Socket file should exist after VM start");
+    assert!(
+        socket_path.exists(),
+        "Socket file should exist after VM start"
+    );
 
     // Cleanup: kill the VM process
     // Parse PID from output and terminate
@@ -531,7 +534,10 @@ fn test_resolve_all_binaries() {
                     stdout.contains("firecracker="),
                     "Output should contain firecracker path"
                 );
-                assert!(stdout.contains("jailer="), "Output should contain jailer path");
+                assert!(
+                    stdout.contains("jailer="),
+                    "Output should contain jailer path"
+                );
             }
         }
         Err(_) => {
