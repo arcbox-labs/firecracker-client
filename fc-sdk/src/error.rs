@@ -6,10 +6,10 @@ use std::process::ExitStatus;
 #[derive(Debug)]
 pub enum Error {
     /// API error with error body from Firecracker.
-    Api(fc_api::Error<fc_api::types::Error>),
+    Api(Box<fc_api::Error<fc_api::types::Error>>),
 
     /// API error without error body (e.g., for endpoints with only default response).
-    ApiNoBody(fc_api::Error<()>),
+    ApiNoBody(Box<fc_api::Error<()>>),
 
     /// HTTP/network error.
     Http(reqwest::Error),
@@ -69,13 +69,13 @@ impl fmt::Display for Error {
 
 impl From<fc_api::Error<fc_api::types::Error>> for Error {
     fn from(err: fc_api::Error<fc_api::types::Error>) -> Self {
-        Self::Api(err)
+        Self::Api(Box::new(err))
     }
 }
 
 impl From<fc_api::Error<()>> for Error {
     fn from(err: fc_api::Error<()>) -> Self {
-        Self::ApiNoBody(err)
+        Self::ApiNoBody(Box::new(err))
     }
 }
 
