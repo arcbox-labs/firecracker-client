@@ -7,21 +7,7 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir);
     let openapi_path = out_dir.join("firecracker-openapi3.json");
-
-    // Convert Swagger 2.0 → OpenAPI 3.0 (cached)
-    if !openapi_path.exists() {
-        let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let abs_spec = Path::new(&manifest_dir).join(spec_path);
-        let status = Command::new("npx")
-            .arg("swagger2openapi")
-            .arg("--patch")
-            .arg("-o")
-            .arg(&openapi_path)
-            .arg(&abs_spec)
-            .status()
-            .expect("failed to run swagger2openapi — is Node.js installed?");
-        assert!(status.success(), "swagger2openapi conversion failed");
-    }
+    println!("cargo:rerun-if-changed={}", openapi_path.display());
 
     // Patch the spec for progenitor compatibility.
     //
