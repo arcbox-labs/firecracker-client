@@ -186,6 +186,13 @@ struct StartArgs {
     #[arg(long)]
     log_level: Option<String>,
 
+    /// Path that receives Firecracker's stdout + stderr (guest serial console).
+    ///
+    /// Opened in create+append mode. Without this flag stdio inherits from the
+    /// parent process. Firecracker backend only.
+    #[arg(long)]
+    console_path: Option<PathBuf>,
+
     /// Socket readiness timeout (seconds).
     #[arg(long, default_value_t = 5)]
     socket_timeout_secs: u64,
@@ -361,10 +368,19 @@ async fn spawn_process(
             if let Some(log_level) = &args.log_level {
                 builder = builder.log_level(log_level.clone());
             }
+            if let Some(console_path) = &args.console_path {
+                builder = builder.console_path(console_path.clone());
+            }
 
             Ok(builder.spawn().await?)
         }
         StartBackend::Jailer => {
+            if args.console_path.is_some() {
+                return Err(invalid_input(
+                    "--console-path is only supported when --backend firecracker",
+                )
+                .into());
+            }
             let raw_id = args.id.clone().unwrap_or_else(|| "fc-cli-vm".to_owned());
             let id =
                 firecracker::sdk::VmId::new(&raw_id).map_err(|e| invalid_input(&e.to_string()))?;
