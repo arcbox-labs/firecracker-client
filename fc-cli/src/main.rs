@@ -348,7 +348,9 @@ async fn spawn_process(
                 .socket_poll_interval(Duration::from_millis(args.socket_poll_interval_ms));
 
             if let Some(id) = &args.id {
-                builder = builder.id(id.clone());
+                let id =
+                    firecracker::sdk::VmId::new(id).map_err(|e| invalid_input(&e.to_string()))?;
+                builder = builder.id(id);
             }
             if let Some(log_path) = &args.log_path {
                 builder = builder.log_path(log_path.clone());
@@ -363,7 +365,9 @@ async fn spawn_process(
             Ok(builder.spawn().await?)
         }
         StartBackend::Jailer => {
-            let id = args.id.clone().unwrap_or_else(|| "fc-cli-vm".to_owned());
+            let raw_id = args.id.clone().unwrap_or_else(|| "fc-cli-vm".to_owned());
+            let id =
+                firecracker::sdk::VmId::new(&raw_id).map_err(|e| invalid_input(&e.to_string()))?;
             let uid = args
                 .uid
                 .ok_or_else(|| invalid_input("--uid is required when --backend jailer"))?;
