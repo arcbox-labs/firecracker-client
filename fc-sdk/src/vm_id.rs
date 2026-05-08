@@ -28,6 +28,7 @@
 //! assert_eq!(projected.as_ref(), "inst-019dbe46-6f74");
 //! ```
 use std::fmt;
+use std::str::FromStr;
 
 use thiserror::Error;
 
@@ -77,19 +78,7 @@ impl VmId {
     /// Returns [`VmIdError`] if the input would be rejected by Firecracker.
     pub fn new(input: impl AsRef<str>) -> Result<Self, VmIdError> {
         let input = input.as_ref();
-        let length = input.len();
-        if !(MIN_LEN..=MAX_LEN).contains(&length) {
-            return Err(VmIdError::InvalidLen {
-                length,
-                min: MIN_LEN,
-                max: MAX_LEN,
-            });
-        }
-        for (position, c) in input.chars().enumerate() {
-            if !is_valid_char(c) {
-                return Err(VmIdError::InvalidChar { c, position });
-            }
-        }
+        validate(input)?;
         Ok(Self(input.to_owned()))
     }
 
@@ -99,6 +88,7 @@ impl VmId {
     /// result is truncated to 64 bytes at the nearest char boundary, and an
     /// empty result is replaced with `"vm"`. The output is always accepted
     /// by [`VmId::new`].
+    #[must_use]
     pub fn from_sanitized(input: impl AsRef<str>) -> Self {
         let sanitized: String = input
             .as_ref()
@@ -144,8 +134,74 @@ impl From<VmId> for String {
     }
 }
 
+impl FromStr for VmId {
+    type Err = VmIdError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s)
+    }
+}
+
+impl TryFrom<&str> for VmId {
+    type Error = VmIdError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for VmId {
+    type Error = VmIdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        validate(&value)?;
+        Ok(Self(value))
+    }
+}
+
+impl PartialEq<str> for VmId {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for VmId {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<VmId> for str {
+    fn eq(&self, other: &VmId) -> bool {
+        self == other.0
+    }
+}
+
+impl PartialEq<VmId> for &str {
+    fn eq(&self, other: &VmId) -> bool {
+        *self == other.0
+    }
+}
+
 fn is_valid_char(c: char) -> bool {
     c == '-' || c.is_alphanumeric()
+}
+
+fn validate(input: &str) -> Result<(), VmIdError> {
+    let length = input.len();
+    if !(MIN_LEN..=MAX_LEN).contains(&length) {
+        return Err(VmIdError::InvalidLen {
+            length,
+            min: MIN_LEN,
+            max: MAX_LEN,
+        });
+    }
+    for (position, c) in input.chars().enumerate() {
+        if !is_valid_char(c) {
+            return Err(VmIdError::InvalidChar { c, position });
+        }
+    }
+    Ok(())
 }
 
 fn truncate_to_bytes(input: &str, max_bytes: usize) -> &str {
@@ -241,6 +297,35 @@ mod tests {
                 position: 2
             }
         );
+    }
+
+    #[test]
+    fn parses_via_from_str_and_propagates_validation_error() {
+        let id: VmId = "my-vm".parse().unwrap();
+        assert_eq!(id, "my-vm");
+        assert_eq!(
+            "_".parse::<VmId>().unwrap_err(),
+            VmIdError::InvalidChar {
+                c: '_',
+                position: 0
+            }
+        );
+    }
+
+    #[test]
+    fn try_from_string_consumes_buffer_on_success() {
+        let buf = String::from("12-3aa");
+        let id = VmId::try_from(buf).unwrap();
+        assert_eq!(id, "12-3aa");
+        assert!(VmId::try_from(String::from("_")).is_err());
+    }
+
+    #[test]
+    fn partial_eq_with_str_compares_in_both_directions() {
+        let id = VmId::new("my-vm").unwrap();
+        assert_eq!(id, "my-vm");
+        assert_eq!("my-vm", id);
+        assert_ne!(id, "other");
     }
 
     #[test]
